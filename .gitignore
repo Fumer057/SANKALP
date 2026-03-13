@@ -22,6 +22,8 @@ frontend/public/generated/
 !tsconfig.json
 !next.config.js
 !next.config.ts
+!vercel.json
+!README.md
 !backend/services/retrieval.py
 !backend/services/web_scraper.py
 !backend/services/validator.py
