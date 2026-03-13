@@ -34,27 +34,73 @@ class SearchResponse(BaseModel):
 @router.get("/search", response_model=SearchResponse)
 async def search_3d_model(request: Request, q: str = Query(..., description="The concept to visualize in 3D")):
     pipeline_stages = []
+    
+    # --- Stage 1: Query Processing ---
     search_profile = expand_query(q)
     pipeline_stages.append({
-        "stage": 1, "name": "Query Processing", "status": "completed", 
-        "detail": f"Identified: '{search_profile['core_entity']}'"
+        "stage": 1, 
+        "name": "Query Processing", 
+        "status": "completed", 
+        "detail": f"Identified entity: '{search_profile['core_entity']}'. Expanded into {len(search_profile['search_keywords'])} keywords."
     })
 
+    # --- Stage 2: Intelligent Retrieval ---
     candidates = retrieve_models(search_profile)
+    pipeline_stages.append({
+        "stage": 2,
+        "name": "Intelligent Retrieval",
+        "status": "completed",
+        "detail": f"Found {len(candidates)} candidate models in the local database."
+    })
+
+    # --- Stage 3: AI Validation ---
     scored_candidates = validate_and_score(candidates, search_profile)
     best_score = scored_candidates[0]["confidence_score"] if scored_candidates else 0
+    pipeline_stages.append({
+        "stage": 3,
+        "name": "AI Validation & Scoring",
+        "status": "completed",
+        "detail": f"Best match score: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
+    })
     
     is_fallback = False
     best_model = None
 
+    # --- Stage 4 & 5: Selection / Web / Fallback ---
     if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
         best_model = scored_candidates[0].copy()
+        pipeline_stages.append({
+            "stage": 4,
+            "name": "Result Selection",
+            "status": "completed",
+            "detail": f"Selected '{best_model['name']}' from local archive. High confidence match."
+        })
     else:
+        pipeline_stages.append({
+            "stage": 4,
+            "name": "Live Web Search",
+            "status": "completed",
+            "detail": f"Local confidence below {CONFIDENCE_THRESHOLD}%. Searching global 3D repositories..."
+        })
+        
         web_model = await search_web_for_glb(search_profile["core_entity"])
+        
         if web_model:
             best_model = web_model.copy()
+            pipeline_stages.append({
+                "stage": 5,
+                "name": "Web Model Retrieved",
+                "status": "completed",
+                "detail": f"Retrieved and indexed '{best_model['name']}' from external CDN."
+            })
         else:
             is_fallback = True
+            pipeline_stages.append({
+                "stage": 5,
+                "name": "AI Generation (Fallback)",
+                "status": "completed",
+                "detail": "No existing matches found. Activating text-to-3D generation pipeline."
+            })
             best_model = await generate_fallback(search_profile)
 
     # Resolve URLs to absolute addresses
