@@ -19,6 +19,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# --- CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- Static Files ---
 # Serve local models and cached generations from the backend
 static_path = os.path.join(os.path.dirname(__file__), "static")
