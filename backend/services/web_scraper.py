@@ -14,7 +14,7 @@ import httpx
 from typing import Optional
 
 CACHE_DIR = os.path.abspath(
-    os.path.join(os.getcwd(), "..", "frontend", "public", "generated")
+    os.path.join(os.path.dirname(__file__), "..", "static", "generated")
 )
 
 # ─── Build CDN URL helpers ───────────────────────────────
