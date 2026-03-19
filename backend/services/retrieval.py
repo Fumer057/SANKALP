@@ -38,7 +38,7 @@ async def retrieve_models(search_profile: dict, max_results: int = 5) -> list[di
         return cached[:max_results]
 
     # 2. Query Global Sketchfab API
-    global_results = await search_sketchfab(query, SKETCHFAB_API_KEY)
+    global_results = await search_sketchfab(search_profile, SKETCHFAB_API_KEY)
     
     # 3. Incorporate local results if highly relevant
     local_match = []
@@ -54,12 +54,16 @@ async def retrieve_models(search_profile: dict, max_results: int = 5) -> list[di
         
     return all_results[:max_results]
 
-async def search_sketchfab(query: str, api_key: str) -> list[dict]:
+async def search_sketchfab(search_profile: dict, api_key: str) -> list[dict]:
     """
     Direct integration with Sketchfab Global Catalog.
+    Includes filtering to ensure results are actually semantically relevant.
     """
     if not api_key:
         return []
+
+    query = search_profile.get("core_entity", "").lower()
+    valid_terms = [t.lower() for t in search_profile.get("search_keywords", []) + [query]]
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -72,7 +76,7 @@ async def search_sketchfab(query: str, api_key: str) -> list[dict]:
                     "downloadable": "true",
                     "archives_flavors": "gltf", 
                     "sort_by": "-relevance",
-                    "count": 10,
+                    "count": 15, # Fetch more to allow for filtering
                 },
                 headers={"Authorization": f"Token {api_key}"},
             )
@@ -81,18 +85,25 @@ async def search_sketchfab(query: str, api_key: str) -> list[dict]:
                 data = response.json()
                 results = []
                 for item in data.get("results", []):
-                    # Basic model mapping
+                    # Accuracy Filter: Ensure at least one keyword is in the title, tags, or description
+                    item_text = (item.get("name", "") + " " + item.get("description", "")).lower()
+                    tags = [t.get("slug", "") for t in item.get("tags", [])]
+                    item_text += " ".join(tags).lower()
+                    
+                    is_relevant = any(term in item_text for term in valid_terms)
+                    
+                    if not is_relevant and query not in item_text:
+                        continue # Skip inaccurate Sketchfab results
+                        
                     results.append({
                         "id": item["uid"],
                         "name": item["name"],
-                        # Note: Deep link to raw GLB requires a separate call or specific permissions
-                        # For the viewer, we use their official viewer URL if raw download is complex
                         "url": f"https://sketchfab.com/models/{item['uid']}/embed", 
                         "thumbnail": item.get("thumbnails", {}).get("images", [{}])[0].get("url", ""),
                         "source": "Sketchfab Global",
                         "description": item.get("description", "")[:200],
                         "poly_count": item.get("faceCount", 0),
-                        "confidence_score": 90, # Assume high confidence for direct name matches
+                        "confidence_score": 90 if query in item["name"].lower() else 75,
                         "is_external": True
                     })
                 return results

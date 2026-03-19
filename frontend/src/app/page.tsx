@@ -71,7 +71,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [currentStage, setCurrentStage] = useState(0);
 
-  const handleSearch = async (searchQuery?: string) => {
+  const handleSearch = async (searchQuery?: string, forceGenerate: boolean = false) => {
     const q = searchQuery || query;
     if (!q.trim()) return;
 
@@ -87,7 +87,7 @@ export default function Home() {
     });
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/search?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+      const response = await fetch(`${BACKEND_URL}/api/search?q=${encodeURIComponent(q)}${forceGenerate ? '&force_generate=true' : ''}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
       const data: SearchResult = await response.json();
@@ -216,13 +216,29 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Info Panel */}
-            <ModelInfo
-              model={result.best_model}
-              allCandidates={result.all_candidates}
-              onSelectCandidate={setSelectedModelUrl}
-              selectedUrl={selectedModelUrl}
-            />
+            {/* Info Panel and Override Action */}
+            <div className="flex flex-col gap-4 w-full max-w-sm">
+              <ModelInfo
+                model={result.best_model}
+                allCandidates={result.all_candidates}
+                onSelectCandidate={setSelectedModelUrl}
+                selectedUrl={selectedModelUrl}
+              />
+              
+              {!result.is_fallback && (
+                <div className="info-card animate-fade-in-up mt-2 p-4 text-center bg-white/5 border border-white/10 rounded-xl">
+                  <p className="text-sm text-gray-400 mb-3">
+                    Not what you asked for? Our AI can build it from scratch.
+                  </p>
+                  <button
+                    onClick={() => handleSearch(query, true)}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-[#6C63FF] to-[#8A7FFF] hover:from-[#5A52D5] hover:to-[#786DE6] text-white rounded-lg font-medium transition-all shadow-[0_0_15px_rgba(108,99,255,0.3)] hover:shadow-[0_0_25px_rgba(108,99,255,0.5)] transform hover:-translate-y-0.5"
+                  >
+                    ✨ Force AI Generation
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

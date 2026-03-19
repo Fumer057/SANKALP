@@ -30,7 +30,11 @@ class SearchResponse(BaseModel):
     is_fallback: bool = False
 
 @router.get("/search", response_model=SearchResponse)
-async def search_3d_model(request: Request, q: str = Query(..., description="The concept to visualize in 3D")):
+async def search_3d_model(
+    request: Request, 
+    q: str = Query(..., description="The concept to visualize in 3D"),
+    force_generate: bool = Query(False, description="Skip retrieval and force AI generation")
+):
     pipeline_stages = []
     
     # --- Stage 1: Query Expansion ---
@@ -42,47 +46,70 @@ async def search_3d_model(request: Request, q: str = Query(..., description="The
         "detail": f"Processed '{q}'. Identified core entity: '{search_profile['core_entity']}'."
     })
 
-    # --- Stage 2: Global Global Retrieval (Sketchfab API) ---
-    # Now searching millions of models directly
-    candidates = await retrieve_models(search_profile)
-    pipeline_stages.append({
-        "stage": 2,
-        "name": "Global Retrieval",
-        "status": "completed",
-        "detail": f"Queried Sketchfab Global Index. Found {len(candidates)} matching 3D models."
-    })
-
-    # --- Stage 3: AI Validation ---
-    scored_candidates = validate_and_score(candidates, search_profile)
-    best_score = scored_candidates[0]["confidence_score"] if scored_candidates else 0
-    pipeline_stages.append({
-        "stage": 3,
-        "name": "AI Validation",
-        "status": "completed",
-        "detail": f"Best match confidence: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
-    })
-    
+    scored_candidates = []
+    best_score = 0
     is_fallback = False
     best_model = None
 
-    # --- Stage 4: Result Selection or High-Fidelity Generation ---
-    if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
-        best_model = scored_candidates[0].copy()
+    if force_generate:
+        pipeline_stages.append({
+            "stage": 2,
+            "name": "Global Retrieval bypassed",
+            "status": "completed",
+            "detail": "User forced AI generation. Skipping Sketchfab search."
+        })
+        pipeline_stages.append({
+            "stage": 3,
+            "name": "AI Validation bypassed",
+            "status": "completed",
+            "detail": "Skipping validation."
+        })
         pipeline_stages.append({
             "stage": 4,
-            "name": "Asset Selection",
+            "name": "High-Fidelity AI Generation (Forced)",
             "status": "completed",
-            "detail": f"Linking to global asset '{best_model['name']}' ({best_model['source']})."
+            "detail": "Activating Open-Source AI Generation pipeline (FLUX.1 + TripoSR) as requested."
         })
-    else:
         is_fallback = True
-        pipeline_stages.append({
-            "stage": 4,
-            "name": "High-Fidelity AI Generation",
-            "status": "completed",
-            "detail": "No suitable global match found. Activating Meshy AI for conceptual generation."
-        })
         best_model = await generate_fallback(search_profile)
+    else:
+        # --- Stage 2: Global Global Retrieval (Sketchfab API) ---
+        candidates = await retrieve_models(search_profile)
+        pipeline_stages.append({
+            "stage": 2,
+            "name": "Global Retrieval",
+            "status": "completed",
+            "detail": f"Queried Sketchfab Global Index. Found {len(candidates)} matching 3D models."
+        })
+
+        # --- Stage 3: AI Validation ---
+        scored_candidates = validate_and_score(candidates, search_profile)
+        best_score = scored_candidates[0]["confidence_score"] if scored_candidates else 0
+        pipeline_stages.append({
+            "stage": 3,
+            "name": "AI Validation",
+            "status": "completed",
+            "detail": f"Best match confidence: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
+        })
+
+        # --- Stage 4: Result Selection or High-Fidelity Generation ---
+        if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
+            best_model = scored_candidates[0].copy()
+            pipeline_stages.append({
+                "stage": 4,
+                "name": "Asset Selection",
+                "status": "completed",
+                "detail": f"Linking to global asset '{best_model['name']}' ({best_model['source']})."
+            })
+        else:
+            is_fallback = True
+            pipeline_stages.append({
+                "stage": 4,
+                "name": "High-Fidelity AI Generation",
+                "status": "completed",
+                "detail": "No suitable global match found. Activating Open-Source AI Generation pipeline (FLUX.1 + TripoSR)."
+            })
+            best_model = await generate_fallback(search_profile)
 
     # Resolve URLs
     if best_model:
