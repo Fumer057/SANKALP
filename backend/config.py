@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- API Keys ---
-SKETCHFAB_API_KEY = os.getenv("SKETCHFAB_API_KEY", "")
+SKETCHFAB_API_KEY = os.getenv("SKETCHFAB_API_KEY", "91c14c1e52c641f2ad7a7c7dce6356b0")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "tsk_b091TGXGTtUnKI_sU2ZRIUaUA5fEWH25RX4aoNPPNWQ")
+TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "") # User noted no free credits here
 
 # --- Validation ---
 CONFIDENCE_THRESHOLD = 40  # Models scoring below this trigger the fallback engine

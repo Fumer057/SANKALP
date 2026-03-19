@@ -13,11 +13,10 @@ interface PipelineStatusProps {
 }
 
 const stageIcons: Record<number, string> = {
-    1: '🔍',
-    2: '📦',
-    3: '🤖',
-    4: '🌐',
-    5: '✨',
+    1: '🔍', // Expansion
+    2: '🌍', // Global Retrieval
+    3: '🤖', // Validation
+    4: '✨', // Selection / Generation
 };
 
 export default function PipelineStatus({ stages, currentStage }: PipelineStatusProps) {

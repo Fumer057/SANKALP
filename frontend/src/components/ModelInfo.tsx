@@ -42,7 +42,19 @@ export default function ModelInfo({ model, allCandidates, onSelectCandidate, sel
                 <div className="model-meta">
                     <div className="meta-item">
                         <span className="meta-label">Source</span>
-                        <span className="meta-value">{model.source}</span>
+                        <div className="flex flex-col">
+                            <span className="meta-value">{model.source}</span>
+                            {selectedUrl.includes('sketchfab.com') && (
+                                <a 
+                                    href={selectedUrl.split('?')[0]} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-[#00D4AA] hover:underline mt-1"
+                                >
+                                    View on Sketchfab ↗
+                                </a>
+                            )}
+                        </div>
                     </div>
                     <div className="meta-item">
                         <span className="meta-label">Category</span>

@@ -32,6 +32,24 @@ function LoadingFallback() {
 }
 
 export default function ModelViewer({ modelUrl, autoRotate = true }: ModelViewerProps) {
+  const isSketchfab = modelUrl.includes('sketchfab.com');
+
+  if (isSketchfab) {
+    return (
+      <div className="viewer-canvas relative overflow-hidden rounded-xl border border-white/10">
+        <iframe
+          title="Sketchfab Viewer"
+          src={`${modelUrl}?autostart=1&internal=1&tracking=0&ui_ar=0&ui_infos=0&ui_snapshots=1&ui_stop=0&ui_theatre=1&ui_watermark=0`}
+          className="h-full w-full border-0"
+          allow="autoplay; fullscreen; xr-spatial-tracking"
+          execution-while-out-of-viewport
+          execution-while-not-rendered
+          web-share
+        ></iframe>
+      </div>
+    );
+  }
+
   return (
     <div className="viewer-canvas">
       <Canvas

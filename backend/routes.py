@@ -7,7 +7,6 @@ from services.query_processor import expand_query
 from services.retrieval import retrieve_models
 from services.validator import validate_and_score
 from services.fallback import generate_fallback
-from services.web_scraper import search_web_for_glb
 from config import CONFIDENCE_THRESHOLD
 
 router = APIRouter(prefix="/api", tags=["search"])
@@ -17,7 +16,6 @@ def resolve_url(url: str, request: Request) -> str:
     if not url or url.startswith("http"):
         return url
     base_url = str(request.base_url).rstrip("/")
-    # Force /static/ prefix if missing to align with our FastAPI mount
     clean_url = url if url.startswith("/static") else f"/static{url}"
     return f"{base_url}{clean_url}"
 
@@ -35,22 +33,23 @@ class SearchResponse(BaseModel):
 async def search_3d_model(request: Request, q: str = Query(..., description="The concept to visualize in 3D")):
     pipeline_stages = []
     
-    # --- Stage 1: Query Processing ---
+    # --- Stage 1: Query Expansion ---
     search_profile = expand_query(q)
     pipeline_stages.append({
         "stage": 1, 
-        "name": "Query Processing", 
+        "name": "Semantic Expansion", 
         "status": "completed", 
-        "detail": f"Identified entity: '{search_profile['core_entity']}'. Expanded into {len(search_profile['search_keywords'])} keywords."
+        "detail": f"Processed '{q}'. Identified core entity: '{search_profile['core_entity']}'."
     })
 
-    # --- Stage 2: Intelligent Retrieval ---
-    candidates = retrieve_models(search_profile)
+    # --- Stage 2: Global Global Retrieval (Sketchfab API) ---
+    # Now searching millions of models directly
+    candidates = await retrieve_models(search_profile)
     pipeline_stages.append({
         "stage": 2,
-        "name": "Intelligent Retrieval",
+        "name": "Global Retrieval",
         "status": "completed",
-        "detail": f"Found {len(candidates)} candidate models in the local database."
+        "detail": f"Queried Sketchfab Global Index. Found {len(candidates)} matching 3D models."
     })
 
     # --- Stage 3: AI Validation ---
@@ -58,59 +57,41 @@ async def search_3d_model(request: Request, q: str = Query(..., description="The
     best_score = scored_candidates[0]["confidence_score"] if scored_candidates else 0
     pipeline_stages.append({
         "stage": 3,
-        "name": "AI Validation & Scoring",
+        "name": "AI Validation",
         "status": "completed",
-        "detail": f"Best match score: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
+        "detail": f"Best match confidence: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
     })
     
     is_fallback = False
     best_model = None
 
-    # --- Stage 4 & 5: Selection / Web / Fallback ---
+    # --- Stage 4: Result Selection or High-Fidelity Generation ---
     if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
         best_model = scored_candidates[0].copy()
         pipeline_stages.append({
             "stage": 4,
-            "name": "Result Selection",
+            "name": "Asset Selection",
             "status": "completed",
-            "detail": f"Selected '{best_model['name']}' from local archive. High confidence match."
+            "detail": f"Linking to global asset '{best_model['name']}' ({best_model['source']})."
         })
     else:
+        is_fallback = True
         pipeline_stages.append({
             "stage": 4,
-            "name": "Live Web Search",
+            "name": "High-Fidelity AI Generation",
             "status": "completed",
-            "detail": f"Local confidence below {CONFIDENCE_THRESHOLD}%. Searching global 3D repositories..."
+            "detail": "No suitable global match found. Activating Meshy AI for conceptual generation."
         })
-        
-        web_model = await search_web_for_glb(search_profile["core_entity"])
-        
-        if web_model:
-            best_model = web_model.copy()
-            pipeline_stages.append({
-                "stage": 5,
-                "name": "Web Model Retrieved",
-                "status": "completed",
-                "detail": f"Retrieved and indexed '{best_model['name']}' from external CDN."
-            })
-        else:
-            is_fallback = True
-            pipeline_stages.append({
-                "stage": 5,
-                "name": "AI Generation (Fallback)",
-                "status": "completed",
-                "detail": "No existing matches found. Activating text-to-3D generation pipeline."
-            })
-            best_model = await generate_fallback(search_profile)
+        best_model = await generate_fallback(search_profile)
 
-    # Resolve URLs to absolute addresses
+    # Resolve URLs
     if best_model:
-        best_model["url"] = resolve_url(best_model["url"], request)
+        best_model["url"] = resolve_url(best_model.get("url"), request)
     
     resolved_candidates = []
     for cand in scored_candidates:
         c = cand.copy()
-        c["url"] = resolve_url(c["url"], request)
+        c["url"] = resolve_url(c.get("url"), request)
         resolved_candidates.append(c)
 
     return SearchResponse(
@@ -125,32 +106,38 @@ async def search_3d_model(request: Request, q: str = Query(..., description="The
 
 @router.get("/gallery")
 async def get_gallery(request: Request):
-    """Scan backend/static/ and return models with absolute URLs."""
-    base_static = os.path.join(os.path.dirname(__file__), "static")
-    models_dir = os.path.join(base_static, "models")
-    gen_dir = os.path.join(base_static, "generated")
+    """Scan local storage and DB cache for all known models."""
+    from services.database import DB_PATH
+    import sqlite3
+    import json
     
     output = []
     
-    paths = [(models_dir, "models", "Local"), (gen_dir, "generated", "Generated")]
-    
-    for directory, sub_path, label in paths:
-        if os.path.exists(directory):
-            for f in os.listdir(directory):
-                if f.endswith(".glb"):
-                    rel_url = f"/static/{sub_path}/{f}"
-                    output.append({
-                        "id": f,
-                        "name": f.replace(".glb", "").replace("_", " ").title(),
-                        "url": resolve_url(rel_url, request),
-                        "source": label,
-                        "file_size_mb": round(os.path.getsize(os.path.join(directory, f)) / (1024 * 1024), 2)
-                    })
+    # 1. Local Files
+    base_static = os.path.join(os.path.dirname(__file__), "static")
+    models_dir = os.path.join(base_static, "models")
+    if os.path.exists(models_dir):
+        for f in os.listdir(models_dir):
+            if f.endswith(".glb"):
+                output.append({
+                    "id": f,
+                    "name": f.replace(".glb", "").replace("_", " ").title(),
+                    "url": resolve_url(f"/static/models/{f}", request),
+                    "source": "Local System"
+                })
+
+    # 2. SQLite Cache (Recently Seen Global Models)
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT results_json FROM search_cache LIMIT 50")
+        for row in cursor.fetchall():
+            models = json.loads(row[0])
+            for m in models:
+                m["url"] = resolve_url(m.get("url"), request)
+                output.append(m)
+        conn.close()
+    except:
+        pass
     
     return {"status": "success", "models": output}
-
-@router.get("/models")
-async def list_models():
-    """Fallback for old endpoints."""
-    from services.retrieval import MODEL_DATABASE
-    return {"status": "success", "models": MODEL_DATABASE}
