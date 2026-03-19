@@ -68,7 +68,7 @@ async def search_3d_model(
             "stage": 4,
             "name": "High-Fidelity AI Generation (Forced)",
             "status": "completed",
-            "detail": "Activating Open-Source AI Generation pipeline (FLUX.1 + TripoSR) as requested."
+            "detail": "Activating highly stable Shap-E AI Generation pipeline as requested."
         })
         is_fallback = True
         best_model = await generate_fallback(search_profile)
@@ -107,7 +107,7 @@ async def search_3d_model(
                 "stage": 4,
                 "name": "High-Fidelity AI Generation",
                 "status": "completed",
-                "detail": "No suitable global match found. Activating Open-Source AI Generation pipeline (FLUX.1 + TripoSR)."
+                "detail": "No suitable global match found. Activating highly reliable Shap-E AI Generation pipeline."
             })
             best_model = await generate_fallback(search_profile)
 
