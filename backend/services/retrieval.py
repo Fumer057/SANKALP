@@ -85,15 +85,18 @@ async def search_sketchfab(search_profile: dict, api_key: str) -> list[dict]:
                 data = response.json()
                 results = []
                 for item in data.get("results", []):
-                    # Accuracy Filter: Ensure at least one keyword is in the title, tags, or description
-                    item_text = (item.get("name", "") + " " + item.get("description", "")).lower()
-                    tags = [t.get("slug", "") for t in item.get("tags", [])]
-                    item_text += " ".join(tags).lower()
+                    # Strict Accuracy Filter: The model's title or tags must contain the exact core entity
+                    # or at least ALL the words of the core entity.
+                    name = item.get("name", "").lower()
+                    tags = [t.get("slug", "").replace("-", " ").lower() for t in item.get("tags", [])]
                     
-                    is_relevant = any(term in item_text for term in valid_terms)
+                    query_words = query.split()
                     
-                    if not is_relevant and query not in item_text:
-                        continue # Skip inaccurate Sketchfab results
+                    is_exact_match = (query in name) or (query in tags)
+                    is_all_words_match = all(word in name for word in query_words)
+                    
+                    if not (is_exact_match or is_all_words_match):
+                        continue # Skip loosely related results
                         
                     results.append({
                         "id": item["uid"],
