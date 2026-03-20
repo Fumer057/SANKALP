@@ -30,9 +30,11 @@ async def generate_fallback(search_profile: dict) -> dict:
     """
     core_entity = search_profile.get("core_entity", "Unknown Concept")
     
-    # Ensure static directory exists
-    base_static = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
-    generated_dir = os.path.join(base_static, "generated")
+    # Ensure static directory exists using absolute path logic
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # Inside services/
+    ROOT_DIR = os.path.dirname(BASE_DIR) # Inside backend/
+    generated_dir = os.path.join(ROOT_DIR, "static", "generated")
+    
     if not os.path.exists(generated_dir):
         os.makedirs(generated_dir, exist_ok=True)
     
