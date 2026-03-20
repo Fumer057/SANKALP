@@ -7,8 +7,8 @@ interface ModelInfoProps {
         source: string;
         poly_count?: number;
         file_size_mb?: number;
-        confidence_score: number;
-        validation_explanation: string;
+        confidence_score?: number; // Made optional for safety
+        validation_explanation?: string; // Made optional for safety
         is_fallback?: boolean;
         category?: string;
     };
@@ -16,7 +16,7 @@ interface ModelInfoProps {
         id: string;
         name: string;
         source: string;
-        confidence_score: number;
+        confidence_score?: number;
         url: string;
     }>;
     onSelectCandidate: (url: string) => void;
@@ -30,30 +30,24 @@ function getConfidenceLevel(score: number): { level: string; color: string; labe
 }
 
 export default function ModelInfo({ model, allCandidates, onSelectCandidate, selectedUrl }: ModelInfoProps) {
-    const conf = getConfidenceLevel(model.confidence_score);
+    // Default values for missing data to prevent crashes
+    const safeScore = model?.confidence_score ?? 0;
+    const safeExplanation = model?.validation_explanation ?? "Validation report generating...";
+    const conf = getConfidenceLevel(safeScore);
+
+    if (!model) return null;
 
     return (
         <div className="info-panel">
-            {/* Model Details */}
             <div className="info-card animate-fade-in-up">
                 <div className="info-card-title">Selected Model</div>
-                <div className="model-name">{model.name}</div>
-                <div className="model-description">{model.description}</div>
+                <div className="model-name">{model.name || "Unnamed Model"}</div>
+                <div className="model-description">{model.description || "No description available."}</div>
                 <div className="model-meta">
                     <div className="meta-item">
                         <span className="meta-label">Source</span>
                         <div className="flex flex-col">
-                            <span className="meta-value">{model.source}</span>
-                            {selectedUrl.includes('sketchfab.com') && (
-                                <a 
-                                    href={selectedUrl.split('?')[0]} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-[10px] text-[#00D4AA] hover:underline mt-1"
-                                >
-                                    View on Sketchfab ↗
-                                </a>
-                            )}
+                            <span className="meta-value">{model.source || "Unknown Source"}</span>
                         </div>
                     </div>
                     <div className="meta-item">
@@ -62,12 +56,6 @@ export default function ModelInfo({ model, allCandidates, onSelectCandidate, sel
                             {model.category || 'General'}
                         </span>
                     </div>
-                    {model.poly_count ? (
-                        <div className="meta-item">
-                            <span className="meta-label">Polygons</span>
-                            <span className="meta-value">{model.poly_count.toLocaleString()}</span>
-                        </div>
-                    ) : null}
                     {model.file_size_mb ? (
                         <div className="meta-item">
                             <span className="meta-label">File Size</span>
@@ -82,12 +70,12 @@ export default function ModelInfo({ model, allCandidates, onSelectCandidate, sel
                 <div className="info-card-title">AI Confidence Score</div>
                 <div className="confidence-meter">
                     <div className="confidence-score" style={{ color: conf.color }}>
-                        {model.confidence_score}%
+                        {safeScore}%
                     </div>
                     <div className="confidence-bar-bg">
                         <div
                             className={`confidence-bar-fill ${conf.level}`}
-                            style={{ width: `${model.confidence_score}%` }}
+                            style={{ width: `${safeScore}%` }}
                         />
                     </div>
                     <div className="confidence-label">{conf.label}</div>
@@ -97,17 +85,17 @@ export default function ModelInfo({ model, allCandidates, onSelectCandidate, sel
             {/* Validation Explanation */}
             <div className="info-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                 <div className="info-card-title">AI Validation Report</div>
-                <div className="validation-text">{model.validation_explanation}</div>
+                <div className="validation-text">{safeExplanation}</div>
             </div>
 
             {/* Candidates List */}
-            {allCandidates.length > 1 && (
+            {(allCandidates || []).length > 1 && (
                 <div className="info-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
                     <div className="info-card-title">
                         All Candidates ({allCandidates.length})
                     </div>
                     {allCandidates.map((candidate, idx) => {
-                        const cConf = getConfidenceLevel(candidate.confidence_score);
+                        const cConf = getConfidenceLevel(candidate.confidence_score ?? 0);
                         return (
                             <div
                                 key={candidate.id}
@@ -116,11 +104,11 @@ export default function ModelInfo({ model, allCandidates, onSelectCandidate, sel
                             >
                                 <div className="candidate-rank">{idx + 1}</div>
                                 <div className="candidate-info">
-                                    <div className="candidate-name">{candidate.name}</div>
+                                    <div className="candidate-name">{candidate.name || "Candidate"}</div>
                                     <div className="candidate-source">{candidate.source}</div>
                                 </div>
                                 <div className="candidate-score" style={{ color: cConf.color }}>
-                                    {candidate.confidence_score}%
+                                    {candidate.confidence_score ?? 0}%
                                 </div>
                             </div>
                         );
