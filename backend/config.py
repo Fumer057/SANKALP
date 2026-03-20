@@ -9,7 +9,7 @@ load_dotenv()
 # --- API Keys ---
 SKETCHFAB_API_KEY = os.getenv("SKETCHFAB_API_KEY", "91c14c1e52c641f2ad7a7c7dce6356b0")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "")
+TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "") 
 
 # --- Validation ---
 CONFIDENCE_THRESHOLD = 40  # Models scoring below this trigger the fallback engine
@@ -42,7 +42,7 @@ SAMPLE_MODELS = {
     },
     "solar_system": {
         "name": "Solar System",
-        "url": "https://modelviewer.dev/shared-assets/models/DamagedHelmet.glb",
+        "url": "https://modelviewer.dev/shared-assets/models/DamagedHelmet.glb", 
         "source": "modelviewer.dev",
         "description": "High-fidelity representation of celestial mechanics in deep space.",
     },

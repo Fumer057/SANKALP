@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional
 import os
 
 from services.query_processor import expand_query
@@ -11,20 +11,12 @@ from config import CONFIDENCE_THRESHOLD
 
 router = APIRouter(prefix="/api", tags=["search"])
 
-# --- Production Config ---
-RENDER_PUBLIC_URL = "https://sankalp-backend.render.com"
-
 def resolve_url(url: str, request: Request) -> str:
-    """Prepend the base URL and force HTTPS if in production."""
-    if not url:
+    """Prepend the base URL to relative model paths."""
+    if not url or url.startswith("http"):
         return url
-    if url.startswith("http"):
-        # Force HTTPS for cross-origin stability
-        return url.replace("http://", "https://")
-        
-    # In production, we trust the hardcoded public URL over the internal request.base_url
-    base_url = RENDER_PUBLIC_URL.rstrip("/")
-    
+    base_url = str(request.base_url).rstrip("/")
+    # Force /static prefix if missing
     clean_url = url if url.startswith("/static") else f"/static{url}"
     return f"{base_url}{clean_url}"
 
@@ -33,9 +25,9 @@ class SearchResponse(BaseModel):
     status: str
     query: str
     search_profile: dict
-    pipeline_stages: List[Dict[str, Any]]
-    best_model: Optional[Dict[str, Any]] = None
-    all_candidates: List[Dict[str, Any]] = []
+    pipeline_stages: list[dict]
+    best_model: Optional[dict] = None
+    all_candidates: list[dict] = []
     is_fallback: bool = False
 
 @router.get("/search", response_model=SearchResponse)
@@ -75,9 +67,9 @@ async def search_3d_model(
         })
         pipeline_stages.append({
             "stage": 4,
-            "name": "AI 3D Generation (Forced)",
+            "name": "Multi-Tier AI Generation (Forced)",
             "status": "completed",
-            "detail": "Activating the highly reliable Shap-E AI Generation engine as requested."
+            "detail": "Activating Cascading Resilience Pipeline (Pollinations -> TripoSR MIRRORS -> Shap-E)."
         })
         is_fallback = True
         best_model = await generate_fallback(search_profile)
@@ -101,7 +93,7 @@ async def search_3d_model(
             "detail": f"Best match confidence: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
         })
 
-        # --- Stage 4: Result Selection or AI Generation ---
+        # --- Stage 4: Result Selection or High-Fidelity Generation ---
         if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
             best_model = scored_candidates[0].copy()
             pipeline_stages.append({
@@ -114,32 +106,21 @@ async def search_3d_model(
             is_fallback = True
             pipeline_stages.append({
                 "stage": 4,
-                "name": "AI 3D Generation",
+                "name": "Multi-Tier AI Generation",
                 "status": "completed",
-                "detail": "No suitable global match found. Activating reliable Shap-E AI Generation engine."
+                "detail": "No suitable global match found. Activating Cascading Resilience Pipeline (TripoSR -> Shap-E)."
             })
             best_model = await generate_fallback(search_profile)
 
-    # --- FINAL SCHEMA LOCKDOWN (Mandatory Fields for Frontend) ---
-    def finalize_model(m: Dict[str, Any]) -> Dict[str, Any]:
-        if not m: return m
-        # Mandatory fields for Frontend interfaces
-        m["id"] = m.get("id", "unnamed")
-        m["name"] = m.get("name", "Unknown Model")
-        m["url"] = resolve_url(m.get("url"), request)
-        m["description"] = m.get("description", "A 3D representation of the queried concept.")
-        m["source"] = m.get("source", "SANKALP Pipeline")
-        m["file_size_mb"] = m.get("file_size_mb", 2.5)
-        m["confidence_score"] = m.get("confidence_score", 0)
-        m["validation_explanation"] = m.get("validation_explanation", "Automatic validation performed by AI pipeline.")
-        return m
-
+    # Resolve URLs
     if best_model:
-        best_model = finalize_model(best_model)
+        best_model["url"] = resolve_url(best_model.get("url"), request)
     
     resolved_candidates = []
     for cand in scored_candidates:
-        resolved_candidates.append(finalize_model(cand.copy()))
+        c = cand.copy()
+        c["url"] = resolve_url(c.get("url"), request)
+        resolved_candidates.append(c)
 
     return SearchResponse(
         status="success",
@@ -161,8 +142,8 @@ async def get_gallery(request: Request):
     output = []
     
     # 1. Local Files
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    models_dir = os.path.join(BASE_DIR, "static", "models")
+    base_static = os.path.join(os.path.dirname(__file__), "static")
+    models_dir = os.path.join(base_static, "models")
     if os.path.exists(models_dir):
         for f in os.listdir(models_dir):
             if f.endswith(".glb"):
@@ -170,11 +151,10 @@ async def get_gallery(request: Request):
                     "id": f,
                     "name": f.replace(".glb", "").replace("_", " ").title(),
                     "url": resolve_url(f"/static/models/{f}", request),
-                    "source": "Local System",
-                    "file_size_mb": 2.5 
+                    "source": "Local System"
                 })
 
-    # 2. SQLite Cache
+    # 2. SQLite Cache (Recently Seen Global Models)
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -183,7 +163,6 @@ async def get_gallery(request: Request):
             models = json.loads(row[0])
             for m in models:
                 m["url"] = resolve_url(m.get("url"), request)
-                m["file_size_mb"] = m.get("file_size_mb", 2.5) 
                 output.append(m)
         conn.close()
     except:
