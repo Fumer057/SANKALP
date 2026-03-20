@@ -66,14 +66,14 @@ async def search_3d_model(
         })
         pipeline_stages.append({
             "stage": 4,
-            "name": "High-Fidelity AI Generation (Forced)",
+            "name": "AI 3D Generation (Forced)",
             "status": "completed",
-            "detail": "Activating Multi-Tier Cascading AI Pipeline (TRELLIS -> Shap-E) as requested."
+            "detail": "Activating the highly reliable Shap-E AI Generation engine as requested."
         })
         is_fallback = True
         best_model = await generate_fallback(search_profile)
     else:
-        # --- Stage 2: Global Global Retrieval (Sketchfab API) ---
+        # --- Stage 2: Global Retrieval (Sketchfab API) ---
         candidates = await retrieve_models(search_profile)
         pipeline_stages.append({
             "stage": 2,
@@ -92,7 +92,7 @@ async def search_3d_model(
             "detail": f"Best match confidence: {best_score}% (Threshold: {CONFIDENCE_THRESHOLD}%)."
         })
 
-        # --- Stage 4: Result Selection or High-Fidelity Generation ---
+        # --- Stage 4: Result Selection or AI Generation ---
         if scored_candidates and best_score >= CONFIDENCE_THRESHOLD:
             best_model = scored_candidates[0].copy()
             pipeline_stages.append({
@@ -105,9 +105,9 @@ async def search_3d_model(
             is_fallback = True
             pipeline_stages.append({
                 "stage": 4,
-                "name": "High-Fidelity AI Generation",
+                "name": "AI 3D Generation",
                 "status": "completed",
-                "detail": "No suitable global match found. Activating Multi-Tier Cascading AI Pipeline (TRELLIS -> Shap-E)."
+                "detail": "No suitable global match found. Activating reliable Shap-E AI Generation engine."
             })
             best_model = await generate_fallback(search_profile)
 
