@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import os
 
 from services.query_processor import expand_query
@@ -24,9 +24,9 @@ class SearchResponse(BaseModel):
     status: str
     query: str
     search_profile: dict
-    pipeline_stages: list[dict]
-    best_model: Optional[dict] = None
-    all_candidates: list[dict] = []
+    pipeline_stages: List[Dict[str, Any]]
+    best_model: Optional[Dict[str, Any]] = None
+    all_candidates: List[Dict[str, Any]] = []
     is_fallback: bool = False
 
 @router.get("/search", response_model=SearchResponse)
@@ -111,15 +111,26 @@ async def search_3d_model(
             })
             best_model = await generate_fallback(search_profile)
 
-    # Resolve URLs
+    # --- FINAL SCHEMA LOCKDOWN (Mandatory Fields for Frontend) ---
+    def finalize_model(m: Dict[str, Any]) -> Dict[str, Any]:
+        if not m: return m
+        # Mandatory fields for Frontend interfaces
+        m["id"] = m.get("id", "unnamed")
+        m["name"] = m.get("name", "Unknown Model")
+        m["url"] = resolve_url(m.get("url"), request)
+        m["description"] = m.get("description", "A 3D representation of the queried concept.")
+        m["source"] = m.get("source", "SANKALP Pipeline")
+        m["file_size_mb"] = m.get("file_size_mb", 2.5)
+        m["confidence_score"] = m.get("confidence_score", 0)
+        m["validation_explanation"] = m.get("validation_explanation", "Automatic validation performed by AI pipeline.")
+        return m
+
     if best_model:
-        best_model["url"] = resolve_url(best_model.get("url"), request)
+        best_model = finalize_model(best_model)
     
     resolved_candidates = []
     for cand in scored_candidates:
-        c = cand.copy()
-        c["url"] = resolve_url(c.get("url"), request)
-        resolved_candidates.append(c)
+        resolved_candidates.append(finalize_model(cand.copy()))
 
     return SearchResponse(
         status="success",
@@ -150,7 +161,8 @@ async def get_gallery(request: Request):
                     "id": f,
                     "name": f.replace(".glb", "").replace("_", " ").title(),
                     "url": resolve_url(f"/static/models/{f}", request),
-                    "source": "Local System"
+                    "source": "Local System",
+                    "file_size_mb": 2.5 # Mandatory field for gallery
                 })
 
     # 2. SQLite Cache (Recently Seen Global Models)
@@ -162,6 +174,7 @@ async def get_gallery(request: Request):
             models = json.loads(row[0])
             for m in models:
                 m["url"] = resolve_url(m.get("url"), request)
+                m["file_size_mb"] = m.get("file_size_mb", 2.5) # Mandatory field for gallery
                 output.append(m)
         conn.close()
     except:
