@@ -12,10 +12,20 @@ from config import CONFIDENCE_THRESHOLD
 router = APIRouter(prefix="/api", tags=["search"])
 
 def resolve_url(url: str, request: Request) -> str:
-    """Prepend the base URL to relative model paths."""
-    if not url or url.startswith("http"):
+    """Prepend the base URL and force HTTPS if in production."""
+    if not url:
         return url
+    if url.startswith("http"):
+        # Force HTTPS for cross-origin stability if it's a Render URL
+        if "render.com" in url:
+            return url.replace("http://", "https://")
+        return url
+        
     base_url = str(request.base_url).rstrip("/")
+    # Force HTTPS for Render production environments
+    if "render.com" in base_url:
+        base_url = base_url.replace("http://", "https://")
+        
     clean_url = url if url.startswith("/static") else f"/static{url}"
     return f"{base_url}{clean_url}"
 
@@ -152,8 +162,8 @@ async def get_gallery(request: Request):
     output = []
     
     # 1. Local Files
-    base_static = os.path.join(os.path.dirname(__file__), "static")
-    models_dir = os.path.join(base_static, "models")
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    models_dir = os.path.join(BASE_DIR, "static", "models")
     if os.path.exists(models_dir):
         for f in os.listdir(models_dir):
             if f.endswith(".glb"):
@@ -162,10 +172,10 @@ async def get_gallery(request: Request):
                     "name": f.replace(".glb", "").replace("_", " ").title(),
                     "url": resolve_url(f"/static/models/{f}", request),
                     "source": "Local System",
-                    "file_size_mb": 2.5 # Mandatory field for gallery
+                    "file_size_mb": 2.5 
                 })
 
-    # 2. SQLite Cache (Recently Seen Global Models)
+    # 2. SQLite Cache
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -174,7 +184,7 @@ async def get_gallery(request: Request):
             models = json.loads(row[0])
             for m in models:
                 m["url"] = resolve_url(m.get("url"), request)
-                m["file_size_mb"] = m.get("file_size_mb", 2.5) # Mandatory field for gallery
+                m["file_size_mb"] = m.get("file_size_mb", 2.5) 
                 output.append(m)
         conn.close()
     except:
