@@ -16,7 +16,6 @@ def resolve_url(url: str, request: Request) -> str:
     if not url or url.startswith("http"):
         return url
     base_url = str(request.base_url).rstrip("/")
-    # Force /static prefix if missing
     clean_url = url if url.startswith("/static") else f"/static{url}"
     return f"{base_url}{clean_url}"
 
@@ -67,14 +66,14 @@ async def search_3d_model(
         })
         pipeline_stages.append({
             "stage": 4,
-            "name": "Multi-Tier AI Generation (Forced)",
+            "name": "High-Fidelity AI Generation (Forced)",
             "status": "completed",
-            "detail": "Activating Cascading Resilience Pipeline (Pollinations -> TripoSR MIRRORS -> Shap-E)."
+            "detail": "Activating highly stable Shap-E AI Generation pipeline as requested."
         })
         is_fallback = True
         best_model = await generate_fallback(search_profile)
     else:
-        # --- Stage 2: Global Retrieval (Sketchfab API) ---
+        # --- Stage 2: Global Global Retrieval (Sketchfab API) ---
         candidates = await retrieve_models(search_profile)
         pipeline_stages.append({
             "stage": 2,
@@ -106,9 +105,9 @@ async def search_3d_model(
             is_fallback = True
             pipeline_stages.append({
                 "stage": 4,
-                "name": "Multi-Tier AI Generation",
+                "name": "High-Fidelity AI Generation",
                 "status": "completed",
-                "detail": "No suitable global match found. Activating Cascading Resilience Pipeline (TripoSR -> Shap-E)."
+                "detail": "No suitable global match found. Activating highly reliable Shap-E AI Generation pipeline."
             })
             best_model = await generate_fallback(search_profile)
 

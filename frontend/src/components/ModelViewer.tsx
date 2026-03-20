@@ -1,41 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
+import * as THREE from 'three';
 
 interface ModelViewerProps {
   modelUrl: string;
   autoRotate?: boolean;
 }
 
-/**
- * Robust 3D Viewer using Google's <model-viewer> web component.
- * This is the industry standard for reliable 3D rendering on the web.
- */
+function Model({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  const ref = useRef<THREE.Group>(null);
+
+
+  return (
+    <group ref={ref}>
+      <primitive object={scene} scale={2} position={[0, -1, 0]} />
+    </group>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <mesh>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#6C63FF" wireframe />
+    </mesh>
+  );
+}
+
 export default function ModelViewer({ modelUrl, autoRotate = true }: ModelViewerProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
   const isSketchfab = modelUrl.includes('sketchfab.com');
-
-  // Load the web component scripts dynamically
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js';
-    document.head.appendChild(script);
-    
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
-
-  if (!modelUrl) {
-    return (
-      <div className="viewer-canvas flex items-center justify-center bg-black/20 text-white/20 italic">
-        Select a model to initialize viewer...
-      </div>
-    );
-  }
 
   if (isSketchfab) {
     return (
@@ -45,42 +42,53 @@ export default function ModelViewer({ modelUrl, autoRotate = true }: ModelViewer
           src={`${modelUrl}?autostart=1&internal=1&tracking=0&ui_ar=0&ui_infos=0&ui_snapshots=1&ui_stop=0&ui_theatre=1&ui_watermark=0`}
           className="h-full w-full border-0"
           allow="autoplay; fullscreen; xr-spatial-tracking"
+          execution-while-out-of-viewport
+          execution-while-not-rendered
+          web-share
         ></iframe>
       </div>
     );
   }
 
   return (
-    <div className="viewer-canvas flex flex-col items-center justify-center relative overflow-hidden bg-white/5 rounded-xl border border-white/10">
-      {/* Type-safe model-viewer usage with custom-elements support */}
-      {/* @ts-ignore */}
-      <model-viewer
-        src={modelUrl}
-        alt="AI Generated 3D Model"
-        auto-rotate={autoRotate ? "true" : "false"}
-        camera-controls
-        shadow-intensity="1"
-        environment-image="neutral"
-        exposure="1"
-        loading="eager"
-        style={{ width: '100%', height: '100%', outline: 'none' }}
-        onLoad={() => setIsLoaded(true)}
+    <div className="viewer-canvas">
+      <Canvas
+        camera={{ position: [3, 2, 5], fov: 45 }}
+        gl={{ antialias: true, alpha: true }}
+        style={{ background: 'transparent' }}
       >
-        {!isLoaded && (
-          <div slot="poster" className="flex items-center justify-center h-full w-full bg-black/10">
-            <div className="loading-spinner" />
-          </div>
-        )}
-        
-        {/* Progress Bar Slot */}
-        <div slot="progress-bar" style={{ display: 'none' }} />
-        
-        {/* Error Fallback */}
-        <div className="model-viewer-error absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
-           Failed to render asset.
-        </div>
-        {/* @ts-ignore */}
-      </model-viewer>
+        {/* Basic Fixed Lighting */}
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 10, 5]} intensity={1} />
+        <pointLight position={[-5, 5, -5]} intensity={0.5} />
+
+        {/* Environment */}
+        <Environment preset="city" />
+
+        {/* Model */}
+        <Suspense fallback={<LoadingFallback />}>
+          <Model url={modelUrl} />
+        </Suspense>
+
+        {/* Shadows */}
+        <ContactShadows
+          position={[0, -1.5, 0]}
+          opacity={0.3}
+          scale={10}
+          blur={2.5}
+        />
+
+        {/* Controls */}
+        <OrbitControls
+          autoRotate={autoRotate}
+          autoRotateSpeed={1.0}
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={1.5}
+          maxDistance={15}
+        />
+      </Canvas>
     </div>
   );
 }
