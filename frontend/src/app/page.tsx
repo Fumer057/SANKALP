@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import PipelineStatus from '@/components/PipelineStatus';
 import ModelInfo from '@/components/ModelInfo';
 
-// Dynamically import ModelViewer with SSR disabled (Three.js needs browser APIs)
+// Dynamically import ModelViewer with SSR disabled
 const ModelViewer = dynamic(() => import('@/components/ModelViewer'), {
   ssr: false,
   loading: () => (
@@ -16,7 +16,7 @@ const ModelViewer = dynamic(() => import('@/components/ModelViewer'), {
   ),
 });
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://sankalp-backend.render.com';
 
 const QUICK_SEARCHES = [
   'Human Heart',
@@ -54,9 +54,9 @@ interface SearchResult {
   all_candidates: Array<{
     id: string;
     name: string;
-    url: string;
     source: string;
     confidence_score: number;
+    url: string;
   }>;
   is_fallback: boolean;
 }
@@ -80,23 +80,27 @@ export default function Home() {
     setError('');
     setCurrentStage(1);
 
-    // Simulate pipeline stages for visual effect
-    const stageDelays = [600, 1200, 1800];
-    stageDelays.forEach((delay, idx) => {
-      setTimeout(() => setCurrentStage(idx + 2), delay);
-    });
-
     try {
-      const response = await fetch(`${BACKEND_URL}/api/search?q=${encodeURIComponent(q)}${forceGenerate ? '&force_generate=true' : ''}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const response = await fetch(`${BACKEND_URL}/api/search?q=${encodeURIComponent(q)}${forceGenerate ? '&force_generate=true' : ''}`, { 
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`Backend Offline or Error: ${response.status}`);
 
       const data: SearchResult = await response.json();
+      
+      if (!data || data.status !== 'success') {
+          throw new Error("Invalid response from AI Pipeline");
+      }
+
       setResult(data);
       setSelectedModelUrl(data.best_model?.url || '');
       setCurrentStage(data.pipeline_stages.length);
       setAppState('results');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect to the backend server.');
+      console.error("Search Error:", err);
+      setError(err instanceof Error ? err.message : 'The AI Pipeline is currently over capacity. Please try again in a few moments.');
       setAppState('error');
     }
   };
@@ -113,23 +117,20 @@ export default function Home() {
 
   return (
     <div className="app-container">
-
       <main className="main-content">
-        {/* Search Section */}
         <section className="search-section">
           <h1 className="search-title">
             Visualize Any Concept<br />in 3D
           </h1>
           <p className="search-subtitle">
-            Type any concept — our AI pipeline retrieves, validates, and presents
-            the best 3D model with intelligent fallback generation.
+            Strict Shap-E AI Generation active. Optimized for high-reliability 3D reconstruction.
           </p>
           <form onSubmit={handleSubmit} className="search-bar-wrapper">
             <input
               id="search-input"
               className="search-bar"
               type="text"
-              placeholder='Try "Human Heart", "DNA Molecule", "Solar System"...'
+              placeholder='Try "Human Heart", "Solar System"...'
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={appState === 'searching'}
@@ -139,7 +140,6 @@ export default function Home() {
               className="search-btn"
               type="submit"
               disabled={appState === 'searching' || !query.trim()}
-              aria-label="Search"
             >
               {appState === 'searching' ? '⟳' : '→'}
             </button>
@@ -158,65 +158,53 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pipeline Status — shown during search and results */}
         {(appState === 'searching' || appState === 'results') && result?.pipeline_stages && (
           <PipelineStatus stages={result.pipeline_stages} currentStage={currentStage} />
         )}
 
-        {/* Loading State */}
         {appState === 'searching' && (
           <div className="loading-container animate-fade-in-up">
             <div className="loading-spinner" />
-            <div className="loading-text">Processing your query through the AI pipeline...</div>
+            <div className="loading-text">Activating Shap-E AI Engine...</div>
             <div className="loading-subtext">
-              Expanding semantics → Retrieving models → Validating with AI → Selecting best match
+              Synthesizing 3D geometry from semantic prompt. This normally takes 15-30 seconds.
             </div>
           </div>
         )}
 
-        {/* Error State */}
         {appState === 'error' && (
           <div className="empty-state animate-fade-in-up">
             <div className="empty-icon">⚠️</div>
-            <div className="empty-title">Connection Error</div>
+            <div className="empty-title">Pipeline Unavailable</div>
             <div className="empty-description">
               {error}
               <br /><br />
-              Make sure the backend server is running:
-              <br />
-              <code style={{ color: '#6C63FF' }}>
-                python -m uvicorn main:app --reload
-              </code>
+              <button 
+                onClick={() => setAppState('idle')}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+              >
+                Return to Search
+              </button>
             </div>
           </div>
         )}
 
-        {/* Results */}
         {appState === 'results' && result?.best_model && (
           <div className="results-section animate-fade-in-up">
-            {/* 3D Viewer */}
             <div className="viewer-container">
               <div className="viewer-overlay-top">
-                <span
-                  className={`viewer-badge ${result.is_fallback ? 'fallback' : 'success'}`}
-                >
-                  {result.is_fallback ? '🤖 AI Generated (Fallback)' : '✓ Retrieved Model'}
+                <span className={`viewer-badge ${result.is_fallback ? 'fallback' : 'success'}`}>
+                  {result.is_fallback ? '🤖 AI Generated (Shap-E)' : '✓ Verified Asset'}
                 </span>
-                <div className="viewer-controls">
-                  <button className="viewer-control-btn" title="Reset View" aria-label="Reset View">
-                    ↻
-                  </button>
-                </div>
               </div>
 
               <ModelViewer modelUrl={selectedModelUrl} autoRotate={true} />
 
               <div className="viewer-hint">
-                🖱️ Drag to rotate • Scroll to zoom • Right-click to pan
+                🖱️ Drag to rotate • Scroll to zoom
               </div>
             </div>
 
-            {/* Info Panel and Override Action */}
             <div className="flex flex-col gap-4 w-full max-w-sm">
               <ModelInfo
                 model={result.best_model}
@@ -228,13 +216,13 @@ export default function Home() {
               {!result.is_fallback && (
                 <div className="info-card animate-fade-in-up mt-2 p-4 text-center bg-white/5 border border-white/10 rounded-xl">
                   <p className="text-sm text-gray-400 mb-3">
-                    Not what you asked for? Our AI can build it from scratch.
+                    Need higher fidelity? Trigger custom Shap-E generation.
                   </p>
                   <button
                     onClick={() => handleSearch(query, true)}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-[#6C63FF] to-[#8A7FFF] hover:from-[#5A52D5] hover:to-[#786DE6] text-white rounded-lg font-medium transition-all shadow-[0_0_15px_rgba(108,99,255,0.3)] hover:shadow-[0_0_25px_rgba(108,99,255,0.5)] transform hover:-translate-y-0.5"
+                    className="w-full py-3 px-4 bg-gradient-to-r from-[#6C63FF] to-[#8A7FFF] hover:from-[#5A52D5] hover:to-[#786DE6] text-white rounded-lg font-medium transition-all shadow-[0_0_15px_rgba(108,99,255,0.3)]"
                   >
-                    ✨ Force AI Generation
+                    ✨ Force Shap-E Generation
                   </button>
                 </div>
               )}
@@ -242,15 +230,13 @@ export default function Home() {
           </div>
         )}
 
-        {/* Default Empty State */}
         {appState === 'idle' && (
           <div className="empty-state">
             <div className="empty-icon">🔮</div>
-            <div className="empty-title">Ready to Explore</div>
+            <div className="empty-title">AI Engine Ready</div>
             <div className="empty-description">
-              Search for any concept above to activate the AI 3D visualization pipeline.
-              The system will retrieve, validate, and render the best available 3D model
-              — with intelligent fallback generation when needed.
+              SANKALP is now strictly locked to the stable Shap-E core. 
+              Search any concept to start the high-fidelity visualization pipeline.
             </div>
           </div>
         )}
