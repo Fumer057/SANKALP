@@ -11,21 +11,20 @@ from config import CONFIDENCE_THRESHOLD
 
 router = APIRouter(prefix="/api", tags=["search"])
 
+# --- Production Config ---
+RENDER_PUBLIC_URL = "https://sankalp-backend.render.com"
+
 def resolve_url(url: str, request: Request) -> str:
     """Prepend the base URL and force HTTPS if in production."""
     if not url:
         return url
     if url.startswith("http"):
-        # Force HTTPS for cross-origin stability if it's a Render URL
-        if "render.com" in url:
-            return url.replace("http://", "https://")
-        return url
+        # Force HTTPS for cross-origin stability
+        return url.replace("http://", "https://")
         
-    base_url = str(request.base_url).rstrip("/")
-    # Force HTTPS for Render production environments
-    if "render.com" in base_url:
-        base_url = base_url.replace("http://", "https://")
-        
+    # In production, we trust the hardcoded public URL over the internal request.base_url
+    base_url = RENDER_PUBLIC_URL.rstrip("/")
+    
     clean_url = url if url.startswith("/static") else f"/static{url}"
     return f"{base_url}{clean_url}"
 
