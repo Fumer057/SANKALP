@@ -44,12 +44,12 @@ async def startup_event():
     """Warm up AI clients in the background on boot."""
     print("\n--- AI SYSTEM WARMING UP ---")
     try:
-        from services.fallback import get_tripo_client, get_shape_client, TRIPO_SPACES
+        from services.fallback import get_trellis_client, get_shape_client
         import asyncio
         
         loop = asyncio.get_event_loop()
-        # Warm up the primary mirror
-        loop.run_in_executor(None, lambda: get_tripo_client(TRIPO_SPACES[0]))
+        # Warm up TRELLIS
+        loop.run_in_executor(None, get_trellis_client)
         # Warm up Shap-E
         loop.run_in_executor(None, get_shape_client)
         print("AI connections initiated... priming system for high speed.\n")

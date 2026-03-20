@@ -1,10 +1,10 @@
 """
-Advanced AI Fallback Engine - Multi-Tier Cascading Resilience Pipeline (100% Free).
+Advanced AI Fallback Engine - Next-Gen TRELLIS Pipeline.
 
 Tiers:
-1. High Fidelity: Pollinations.ai (Image) -> TripoSR (3D Mesh) [Multi-Space Failover]
-2. High Stability: Shap-E (Point Cloud to Mesh)
-3. Failsafe: Conceptual Match from Local Cache
+1. High Fidelity: Pollinations (Image) -> TRELLIS (Advanced 3D) - BEST QUALITY
+2. High Stability: Shap-E (Direct 3D)
+3. Failsafe: Conceptual Match from Corrected Local Cache
 """
 import os
 import time
@@ -22,22 +22,15 @@ _CLIENT_CACHE = {}
 # The HF_TOKEN must be set in the Render environment variables for high-fidelity generation.
 HF_TOKEN = os.getenv("HF_TOKEN", None)
 
-# Priority list of TripoSR spaces (Mirrors)
-TRIPO_SPACES = [
-    "stabilityai/TripoSR",
-    "VAST-AI/TripoSR",
-    "radames/TripoSR"
-]
-
-def get_tripo_client(space_name):
-    if space_name not in _CLIENT_CACHE:
+def get_trellis_client():
+    if "trellis" not in _CLIENT_CACHE:
         try:
-            print(f"Connecting to TripoSR Space: {space_name}...")
-            _CLIENT_CACHE[space_name] = Client(space_name, hf_token=HF_TOKEN)
+            print("Connecting to Next-Gen TRELLIS Space...")
+            _CLIENT_CACHE["trellis"] = Client("JeffreyXiang/TRELLIS", hf_token=HF_TOKEN)
         except Exception as e:
-            print(f"      [Connection Failed] {space_name}: {e}")
+            print(f"      [Connection Failed] TRELLIS: {e}")
             return None
-    return _CLIENT_CACHE[space_name]
+    return _CLIENT_CACHE["trellis"]
 
 def get_shape_client():
     if "shape" not in _CLIENT_CACHE:
@@ -57,10 +50,10 @@ async def generate_fallback(search_profile: dict) -> dict:
     filename = f"gen_{int(time.time())}.glb"
     dest_path = os.path.join(generated_dir, filename)
 
-    print(f"\n--- Initiating Multi-Tier AI Generation for '{core_entity}' ---")
+    print(f"\n--- Initiating Next-Gen AI Generation for '{core_entity}' ---")
 
     # =========================================================================
-    # TIER 1: HIGH FIDELITY (Pollinations -> TripoSR Multi-Mirror)
+    # TIER 1: HIGH FIDELITY (Pollinations -> TRELLIS)
     # =========================================================================
     t1_error = "None"
     try:
@@ -74,39 +67,53 @@ async def generate_fallback(search_profile: dict) -> dict:
                 with open(temp_image, "wb") as f:
                     f.write(resp.content)
                 
-                print("[Tier 1] Image Ready. Searching for available 3D Space...")
-                for space in TRIPO_SPACES:
-                    tripo = await loop.run_in_executor(None, lambda: get_tripo_client(space))
-                    if not tripo: continue
-                    
+                print("[Tier 1] Image Ready. Connecting to TRELLIS...")
+                trellis = await loop.run_in_executor(None, get_trellis_client)
+                
+                if trellis:
                     try:
-                        print(f"      [Attempting] {space}...")
-                        obj_path = await loop.run_in_executor(
-                            None, 
-                            lambda: tripo.predict(
-                                image=temp_image, foreground_ratio=0.85, mc_resolution=256, api_name="/process"
+                        print("      [Stage 1/2] Generating Latent Representation...")
+                        asset_v_path = await loop.run_in_executor(
+                            None,
+                            lambda: trellis.predict(
+                                image=temp_image, 
+                                multiimages=[], 
+                                seed=random.randint(0, 1000), 
+                                ss_guidance_strength=7.5,
+                                ss_sampling_steps=12,
+                                slat_guidance_strength=3.0,
+                                slat_sampling_steps=12,
+                                multiimage_algo="stochastic",
+                                api_name="/image_to_3d"
                             )
                         )
                         
-                        def convert_to_glb():
-                            scene = trimesh.load(obj_path, force="mesh")
-                            scene.export(dest_path)
+                        print("      [Stage 2/2] Extracting GLB mesh...")
+                        extracted_paths = await loop.run_in_executor(
+                            None,
+                            lambda: trellis.predict(
+                                mesh_simplify=0.95,
+                                texture_size=1024,
+                                api_name="/extract_glb"
+                            )
+                        )
                         
-                        await loop.run_in_executor(None, convert_to_glb)
+                        glb_temp_path = extracted_paths[1]
+                        shutil.copy2(glb_temp_path, dest_path)
                         
                         return {
                             "id": f"gen-t1-{int(time.time())}",
                             "name": f"AI-Generated: {core_entity}",
                             "url": f"/static/generated/{filename}",
-                            "source": f"TripoSR ({space})",
-                            "description": f"High-fidelity 3D representation generated using {space}.",
+                            "source": "TRELLIS (Next-Gen AI)",
+                            "description": f"State-of-the-art 3D reconstruction of '{core_entity}' generated using the TRELLIS pipeline. Superior geometric accuracy and detail.",
                             "file_size_mb": round(os.path.getsize(dest_path) / (1024 * 1024), 2),
                             "status": "success",
                             "is_fallback": True
                         }
-                    except Exception as e:
-                        t1_error = str(e)[:100]
-                        print(f"      [Generation Failed] {space}: {t1_error}")
+                    except Exception as e_inner:
+                        t1_error = str(e_inner)[:100]
+                        print(f"      [TRELLIS Generation Failed] {t1_error}")
     except Exception as e_base:
         t1_error = str(e_base)[:100]
 

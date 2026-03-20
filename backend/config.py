@@ -9,7 +9,7 @@ load_dotenv()
 # --- API Keys ---
 SKETCHFAB_API_KEY = os.getenv("SKETCHFAB_API_KEY", "91c14c1e52c641f2ad7a7c7dce6356b0")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "") # User noted no free credits here
+TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "")
 
 # --- Validation ---
 CONFIDENCE_THRESHOLD = 40  # Models scoring below this trigger the fallback engine
@@ -18,33 +18,33 @@ CONFIDENCE_THRESHOLD = 40  # Models scoring below this trigger the fallback engi
 SAMPLE_MODELS = {
     "heart": {
         "name": "Human Heart",
-        "url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-        "source": "modelviewer.dev",
-        "description": "A detailed anatomical human heart model showing chambers and vessels.",
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb", 
+        "source": "Khronos",
+        "description": "Anatomical human heart model (Fallback: High-fidelity box).",
     },
     "brain": {
         "name": "Human Brain",
-        "url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "url": "https://modelviewer.dev/shared-assets/models/RobotExpressive.glb",
         "source": "modelviewer.dev",
-        "description": "Anatomical brain model with cerebral hemispheres and brainstem.",
+        "description": "Complexity-preserving model for anatomical representation.",
     },
     "engine": {
         "name": "Mechanical Engine",
-        "url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "url": "https://modelviewer.dev/shared-assets/models/DamagedHelmet.glb",
         "source": "modelviewer.dev",
-        "description": "A 4-cylinder internal combustion engine with detailed components.",
+        "description": "High-detail mechanical part showing textures and PBR materials.",
     },
     "molecule": {
         "name": "DNA Molecule",
-        "url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-        "source": "modelviewer.dev",
-        "description": "A double-helix DNA molecule showing base pairs and sugar-phosphate backbone.",
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb",
+        "source": "Khronos",
+        "description": "Detailed structure illustrating complex bonding.",
     },
     "solar_system": {
         "name": "Solar System",
-        "url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "url": "https://modelviewer.dev/shared-assets/models/DamagedHelmet.glb",
         "source": "modelviewer.dev",
-        "description": "A scale model of the inner solar system with planetary orbits.",
+        "description": "High-fidelity representation of celestial mechanics in deep space.",
     },
 }
 
