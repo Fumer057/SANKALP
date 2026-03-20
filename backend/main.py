@@ -29,7 +29,6 @@ app.add_middleware(
 )
 
 # --- Static Files ---
-# Serve local models and cached generations from the backend
 static_path = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_path):
     os.makedirs(os.path.join(static_path, "models"), exist_ok=True)
@@ -40,6 +39,22 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 # --- Include Routers ---
 app.include_router(router)
 
+@app.on_event("startup")
+async def startup_event():
+    """Warm up AI clients in the background on boot."""
+    print("\n--- AI SYSTEM WARMING UP ---")
+    try:
+        from services.fallback import get_tripo_client, get_shape_client, TRIPO_SPACES
+        import asyncio
+        
+        loop = asyncio.get_event_loop()
+        # Warm up the primary mirror
+        loop.run_in_executor(None, lambda: get_tripo_client(TRIPO_SPACES[0]))
+        # Warm up Shap-E
+        loop.run_in_executor(None, get_shape_client)
+        print("AI connections initiated... priming system for high speed.\n")
+    except Exception as e:
+        print(f"Warm-up failed: {e}")
 
 @app.get("/")
 async def root():
@@ -49,7 +64,7 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "search": "/api/search?q=<your_query>",
-            "models": "/api/models",
-            "health": "/api/health",
+            "models": "/api/gallery",
+            "health": "/",
         },
     }
