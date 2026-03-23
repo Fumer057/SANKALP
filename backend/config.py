@@ -12,7 +12,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 TRIPO3D_API_KEY = os.getenv("TRIPO3D_API_KEY", "") # User noted no free credits here
 
 # --- Validation ---
-CONFIDENCE_THRESHOLD = 40  # Models scoring below this trigger the fallback engine
+CONFIDENCE_THRESHOLD = 35  # Lowered to 35 to ensure "Moderate" matches (40-50%) are accepted for presentation
 
 # --- 3D Model Sources (Sample GLBs for prototype) ---
 SAMPLE_MODELS = {

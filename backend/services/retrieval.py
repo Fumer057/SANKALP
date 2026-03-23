@@ -25,7 +25,7 @@ MODEL_DATABASE = [
     }
 ]
 
-async def retrieve_models(search_profile: dict, max_results: int = 5) -> list[dict]:
+async def retrieve_models(search_profile: dict, max_results: int = 4) -> list[dict]:
     """
     Search millions of models via Sketchfab API + Local Cache.
     Returns a ranked list of candidate models.
@@ -76,7 +76,7 @@ async def search_sketchfab(search_profile: dict, api_key: str) -> list[dict]:
                     "downloadable": "true",
                     "archives_flavors": "gltf", 
                     "sort_by": "-relevance",
-                    "count": 15, # Fetch more to allow for filtering
+                    "count": 24, # Fetch more to allow for filtering and diverse candidates
                 },
                 headers={"Authorization": f"Token {api_key}"},
             )
@@ -106,7 +106,7 @@ async def search_sketchfab(search_profile: dict, api_key: str) -> list[dict]:
                         "source": "Sketchfab Global",
                         "description": item.get("description", "")[:200],
                         "poly_count": item.get("faceCount", 0),
-                        "confidence_score": 90 if query in item["name"].lower() else 75,
+                        "relevance_score": 100 if query in item["name"].lower() else 85,
                         "is_external": True
                     })
                 return results

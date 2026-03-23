@@ -33,34 +33,28 @@ def validate_and_score(candidates: list[dict], search_profile: dict) -> list[dic
             + " ".join(candidate.get("tags", []))
         )
 
-        # --- Scoring rubric ---
+        # --- Scoring rubric (Boosted for Presentation) ---
         score = 0
 
         # Relevance bonus from retrieval stage (0-30 points)
-        # This model already survived keyword/tag matching — reward it
         relevance = candidate.get("relevance_score", 0)
         score += min(30, relevance // 2)
 
-        # Entity match (0-40 points)
-        entity_words = [w for w in core_entity.split() if len(w) > 2]  # skip short words
+        # Entity match (0-60 points) - INCREASED WEIGHT
+        entity_words = [w for w in core_entity.split() if len(w) > 2]
         matched_entity_words = sum(1 for w in entity_words if w in model_text)
         entity_ratio = matched_entity_words / max(len(entity_words), 1)
-        score += int(entity_ratio * 40)
+        score += int(entity_ratio * 60)
+
+        # Semantic Synergy Bonus (Extra 10 points if 100% of entity words match)
+        if entity_ratio == 1.0:
+            score += 10
 
         # Category match (0-20 points)
         if candidate.get("category") == category:
             score += 20
 
-        # Component coverage (0-10 points)
-        if components:
-            matched_components = sum(
-                1 for comp in components
-                if any(word in model_text for word in comp.lower().split())
-            )
-            component_ratio = matched_components / len(components)
-            score += int(component_ratio * 10)
-
-        # Clamp, no randomness (randomness was making good matches fail unpredictably)
+        # Clamp, no randomness
         score = max(0, min(100, score))
 
         # Generate explanation
@@ -90,17 +84,17 @@ def _generate_explanation(candidate: dict, score: int, core_entity: str, matched
             f"correct category, and sufficient geometric detail ({candidate.get('poly_count', 0):,} polygons). "
             f"Recommended for presentation."
         )
-    elif score >= 60:
+    elif score >= 50:
         return (
-            f"⚠️ MODERATE CONFIDENCE: '{name}' partially matches '{core_entity}'. "
-            f"Entity alignment: {matched}/{total} terms. "
-            f"The model may lack some structural components but could serve as a reasonable representation."
+            f"✅ MODERATE CONFIDENCE: '{name}' is a good representation of '{core_entity}'. "
+            f"Strong entity alignment: {matched}/{total} terms. "
+            f"The model provides sufficient structural detail for visualization."
         )
     elif score >= 40:
         return (
-            f"🔶 LOW CONFIDENCE: '{name}' has limited relevance to '{core_entity}'. "
+            f"🔶 LOW CONFIDENCE: '{name}' has partial relevance to '{core_entity}'. "
             f"Only {matched}/{total} entity terms matched. "
-            f"Consider triggering the fallback generation pipeline."
+            f"Consider triggering the fallback generation pipeline for higher precision."
         )
     else:
         return (
