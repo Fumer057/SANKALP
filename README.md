@@ -54,3 +54,5 @@ The project includes a `Dockerfile` in the backend directory for easy deployment
 
 ---
 *Created with ❤️ for AI-powered 3D exploration.*
+
+**Vercel Build Trigger**: 2026-03-23-FIX-UI-01
